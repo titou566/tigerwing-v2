@@ -1,59 +1,22 @@
-export default async function handler(req, res) {
-  // Autoriser seulement POST
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Méthode non autorisée" });
-  }
-
+async function sendMail(data) {
   try {
-    const apiKey = process.env.RESEND_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({
-        error: "RESEND_API_KEY manquante dans Vercel"
-      });
-    }
-
-    const { to_email, subject, body } = req.body;
-
-    // Vérif des champs
-    if (!to_email || !subject || !body) {
-      return res.status(400).json({
-        error: "Champs manquants (to_email, subject, body)"
-      });
-    }
-
-    // Envoi avec Resend
-    const response = await fetch("https://api.resend.com/emails", {
+    const res = await fetch("/api/send-mail", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: "TigerWing <onboarding@resend.dev>",
-        to: [to_email],
-        subject: subject,
-        text: body
-      })
+      body: JSON.stringify(data),
     });
 
-    const data = await response.json();
+    const text = await res.text();
+    console.log("API RESPONSE:", text);
 
-    if (!response.ok) {
-      return res.status(500).json({
-        error: "Erreur Resend",
-        details: data
-      });
+    if (!res.ok) {
+      throw new Error("Erreur API mail");
     }
 
-    return res.status(200).json({
-      success: true,
-      data
-    });
-
   } catch (err) {
-    return res.status(500).json({
-      error: err.message
-    });
+    console.error("MAIL ERROR:", err);
+    throw err;
   }
 }
