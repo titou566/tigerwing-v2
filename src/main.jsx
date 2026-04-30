@@ -1,91 +1,46 @@
-import React, { useState } from "react";
-import { createRoot } from "react-dom/client";
-import { createClient } from "@supabase/supabase-js";
-import "./style.css";
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Méthode non autorisée" });
+  }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    const apiKey = process.env.RESEND_API_KEY;
 
-async function sendMail(data) {
-  await fetch("/api/send-mail", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-}
-
-function App() {
-  const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    nickname: "",
-    email: "",
-    country: "France",
-    network: "IVAO",
-    network_id: "",
-    simulator: "MSFS",
-    experience: "Débutant",
-    motivation: "",
-  });
-
-  const [message, setMessage] = useState("");
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("applications")
-        .insert([form]);
-
-      if (error) throw error;
-
-      await sendMail({
-        to_email: form.email,
-        subject: "Candidature TigerWing reçue",
-        body: `Bonjour ${form.first_name},
-
-Ta candidature a bien été reçue !
-
-TigerWing VA ✈️`,
-      });
-
-      setMessage("✅ Candidature envoyée !");
-    } catch (err) {
-      setMessage("❌ Erreur : " + err.message);
+    if (!apiKey) {
+      return res.status(500).json({ error: "RESEND_API_KEY manquante" });
     }
-  };
 
-  return (
-    <div className="container">
-      <h1>Rejoindre TigerWing</h1>
+    const { to_email, subject, body } = req.body;
 
-      <input name="first_name" placeholder="Prénom" onChange={handleChange} />
-      <input name="last_name" placeholder="Nom" onChange={handleChange} />
-      <input name="nickname" placeholder="Surnom" onChange={handleChange} />
-      <input name="email" placeholder="Email" onChange={handleChange} />
+    if (!to_email || !subject || !body) {
+      return res.status(400).json({ error: "Champs manquants" });
+    }
 
-      <select name="network" onChange={handleChange}>
-        <option>IVAO</option>
-        <option>VATSIM</option>
-      </select>
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "TigerWing <onboarding@resend.dev>",
+        to: [to_email],
+        subject,
+        text: body,
+      }),
+    });
 
-      <input
-        name="network_id"
-        placeholder="ID IVAO / CID VATSIM"
-        onChange={handleChange}
-      />
+    const data = await response.json();
 
-      <button onClick={handleSubmit}>Envoyer candidature</button>
+    if (!response.ok) {
+      return res.status(500).json({
+        error: "Erreur Resend",
+        details: data,
+      });
+    }
 
-      <p>{message}</p>
-    </div>
-  );
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 }
-
-createRoot(document.getElementById("root")).render(<App />);
