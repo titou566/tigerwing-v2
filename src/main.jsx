@@ -1,389 +1,69 @@
-import React, { useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { createClient } from "@supabase/supabase-js";
-import { Plane, Crown, ShieldCheck, Users, FileText, LogOut, UserPlus, Trash2, Ban, Save } from "lucide-react";
-import "./style.css";
+import React,{useEffect,useState}from"react";
+import{createRoot}from"react-dom/client";
+import{createClient}from"@supabase/supabase-js";
+import{Plane,Crown,ShieldCheck,Users,Trophy,CalendarDays,FileText,LogIn,LogOut,UserPlus,Award,BookOpen,Send,Check,X,Lock,Menu,Bell,Building2,Download,Database,RefreshCw,RadioTower,Trash2,Ban,MessageCircle,Settings,Save,ClipboardList,UserX,Mail}from"lucide-react";
+import"./style.css";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+const supabaseUrl=import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey=import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase=supabaseUrl&&supabaseKey?createClient(supabaseUrl,supabaseKey):null;
 
-const accounts = [
-  { email:"pilote@tigerwing.va", password:"tiger123", role:"pilote", name:"Antoine Martin", callsign:"TWG1896", rank:"First Officer", hours:42, flights:18 },
-  { email:"admin@tigerwing.va", password:"admin123", role:"admin", name:"Julie Moreau", callsign:"TWG900", rank:"Commandant", hours:210, flights:81 },
-  { email:"ceo@tigerwing.va", password:"ceo123", role:"ceo", name:"Alexandre Leroy", callsign:"TWG001", rank:"Executive Captain", hours:980, flights:412 }
+const demoUsers=[
+{email:"pilote@tigerwing.va",password:"tiger123",role:"pilote",name:"Antoine Martin",callsign:"TWG1896",network:"IVAO + VATSIM",rank:"First Officer",hours:42,flights:18,airport:"LFLL",xp:38,status:"active"},
+{email:"admin@tigerwing.va",password:"admin123",role:"admin",name:"Julie Moreau",callsign:"TWG900",network:"IVAO",rank:"Commandant",hours:210,flights:81,airport:"LFPG",xp:74,status:"active"},
+{email:"ceo@tigerwing.va",password:"ceo123",role:"ceo",name:"Alexandre Leroy",callsign:"TWG001",network:"Aucun",rank:"Executive Captain",hours:980,flights:412,airport:"LFPG",xp:100,status:"active"}
 ];
+const fleet=[["A220-300","Régional premium","Airbus","Lyon"],["A320neo","Cœur européen","Airbus","Paris CDG"],["A321neo","Europe haute capacité","Airbus","Nice"],["A330neo","Long-courrier confort","Airbus","Montréal"],["A350-900","Flagship luxe","Airbus","Paris CDG"],["B737-8","Réseau flexible","Boeing","Genève"],["B777-300ER","Routes prestige","Boeing","Dubaï"],["B787-9","Dreamliner premium","Boeing","Paris CDG"]];
+const fallbackApps=[{id:"APP-001",first_name:"Lucas",last_name:"Martin",nickname:"Lucas M",fullname:"Lucas Martin",email:"lucas@example.com",country:"France",network:"Aucun",ivao_id:"",vatsim_cid:"",simulator:"MSFS",experience:"Débutant",motivation:"Je veux progresser.",status:"pending"}];
+const fallbackPlans=[{id:"FP-1001",callsign:"TWG204",pilot_name:"Antoine Martin",pilot_email:"pilote@tigerwing.va",departure:"LFPG",arrival:"LEMD",aircraft:"A320neo",route:"OKASI UN860 PPN",status:"accepted",debrief:""}];
+const defaultSettings={discord_url:"",announcement:"Bienvenue chez TigerWing"};
 
-const demoPlans = [
-  { id:"demo1", callsign:"TWG204", pilot_email:"pilote@tigerwing.va", pilot_name:"Antoine Martin", departure:"LFPG", arrival:"LEMD", aircraft:"A320neo", route:"OKASI UN860 PPN", debrief:"", status:"accepted" }
-];
-
-function isStaff(u){ return u?.role === "admin" || u?.role === "ceo"; }
-function isCEO(u){ return u?.role === "ceo"; }
-
-async function queueMail(app, type="received"){
-  if(!supabase) return;
-  let subject = "Candidature TigerWing reçue";
-  let body = `Bonjour ${app.first_name},\n\nTa candidature TigerWing a bien été reçue.\nNotre staff va l'étudier prochainement.\n\nBons vols,\nL'équipe TigerWing`;
-
-  if(type === "accepted"){
-    subject = "Candidature TigerWing acceptée";
-    body = `Bonjour ${app.first_name},\n\nBonne nouvelle : ta candidature TigerWing est acceptée.\nBienvenue chez TigerWing.\n\nBons vols,\nL'équipe TigerWing`;
-  }
-
-  if(type === "rejected"){
-    subject = "Candidature TigerWing";
-    body = `Bonjour ${app.first_name},\n\nTa candidature n'a pas été retenue pour le moment.\nTu pourras toutefois repostuler dans 1 semaine.\n\nBons vols,\nL'équipe TigerWing`;
-  }
-
-  await supabase.from("mail_queue").insert([{
-    to_email: app.email,
-    subject,
-    body,
-    status:"queued",
-    related_application_id: app.id || null
-  }]);
-}
+function canAdmin(u){return u?.role==="admin"||u?.role==="ceo"}function canCEO(u){return u?.role==="ceo"}
+function statusFR(s){return({pending:"En attente",accepted:"Acceptée",rejected:"Refusée",completed:"Terminé",scheduled:"Programmé",active:"Actif",banned:"Banni"}[s]||s||"En attente")}
+function isBanned(p){return p?.banned_until&&new Date(p.banned_until)>new Date()}
+async function safe(fn,fb){try{if(!supabase)return fb;const{data,error}=await fn();if(error)throw error;return data||fb}catch(e){console.warn(e.message);return fb}}
+async function queueMail(mail,id=null){if(!supabase)return;await supabase.from("mail_queue").insert([{to_email:mail.to_email,subject:mail.subject,body:mail.body,status:"pending",related_application:id,related_application_id:id}])}
+function receivedMail(a){return{to_email:a.email,subject:"Candidature TigerWing reçue",body:`Bonjour ${a.first_name||a.nickname||""},\n\nTa candidature TigerWing a bien été reçue.\nNotre staff va l'étudier prochainement.\n\nBons vols,\nL'équipe TigerWing`}}
+function decisionMail(a,status){return status==="accepted"?{to_email:a.email,subject:"Candidature TigerWing acceptée",body:`Bonjour ${a.first_name||a.nickname||""},\n\nBonne nouvelle : ta candidature TigerWing est acceptée.\n\nBienvenue dans la compagnie.\n\nBons vols,\nL'équipe TigerWing`}:{to_email:a.email,subject:"Candidature TigerWing",body:`Bonjour ${a.first_name||a.nickname||""},\n\nMerci pour l'intérêt que tu portes à TigerWing.\nAprès étude de ta candidature, elle n'a pas été retenue pour le moment.\n\nTu pourras toutefois repostuler dans 1 semaine.\n\nBons vols,\nL'équipe TigerWing`}}
 
 function App(){
-  const [page,setPage] = useState("home");
-  const [user,setUser] = useState(null);
-  const [apps,setApps] = useState([]);
-  const [plans,setPlans] = useState(demoPlans);
-  const [pilots,setPilots] = useState(accounts);
-
-  async function refresh(){
-    if(!supabase) return;
-    const a = await supabase.from("applications").select("*").order("created_at",{ascending:false});
-    const p = await supabase.from("flight_plans").select("*").order("created_at",{ascending:false});
-    const pi = await supabase.from("pilots").select("*").order("created_at",{ascending:false});
-    if(!a.error) setApps(a.data || []);
-    if(!p.error && p.data?.length) setPlans(p.data);
-    if(!pi.error && pi.data?.length) setPilots(pi.data);
-  }
-
-  useEffect(()=>{ refresh(); },[]);
-
-  function login(email,password){
-    const found = accounts.find(a => a.email === email && a.password === password);
-    if(!found) throw new Error("Identifiants incorrects");
-    setUser(found);
-    setPage("dashboard");
-  }
-
-  async function addApplication(form){
-    const payload = {
-      ...form,
-      fullname:`${form.first_name} ${form.last_name}`,
-      status:"pending",
-      email_status:"queued"
-    };
-
-    let saved = {...payload, id:"local-"+Date.now()};
-
-    if(supabase){
-      const {data,error} = await supabase.from("applications").insert([payload]).select().single();
-      if(error) throw error;
-      saved = data;
-      await queueMail(saved, "received");
-    }
-
-    setApps([saved, ...apps]);
-  }
-
-  async function setApplicationStatus(app,status){
-    const patch = { status };
-    if(status === "rejected") patch.rejected_until = new Date(Date.now()+7*24*60*60*1000).toISOString();
-
-    if(supabase && !String(app.id).startsWith("local-")){
-      await supabase.from("applications").update(patch).eq("id",app.id);
-      await queueMail({...app,...patch}, status === "accepted" ? "accepted" : "rejected");
-    }
-
-    setApps(apps.map(a => a.id === app.id ? {...a,...patch} : a));
-  }
-
-  async function deleteApplication(app){
-    if(!confirm("Supprimer cette candidature ?")) return;
-    if(supabase && !String(app.id).startsWith("local-")) await supabase.from("applications").delete().eq("id",app.id);
-    setApps(apps.filter(a => a.id !== app.id));
-  }
-
-  async function addPlan(form){
-    const payload = {...form, pilot_email:user.email, pilot_name:user.name, status:"pending", debrief:""};
-    if(supabase) await supabase.from("flight_plans").insert([payload]);
-    setPlans([{...payload,id:"localplan-"+Date.now()},...plans]);
-  }
-
-  async function updatePlan(plan,patch){
-    if(supabase && !String(plan.id).startsWith("local")) await supabase.from("flight_plans").update(patch).eq("id",plan.id);
-    setPlans(plans.map(p => p.id === plan.id ? {...p,...patch} : p));
-  }
-
-  async function deletePlan(plan){
-    if(!confirm("Supprimer ce vol ?")) return;
-    if(supabase && !String(plan.id).startsWith("local")) await supabase.from("flight_plans").delete().eq("id",plan.id);
-    setPlans(plans.filter(p => p.id !== plan.id));
-  }
-
-  if(page==="home") return <Home setPage={setPage}/>;
-  if(page==="join") return <Join setPage={setPage} addApplication={addApplication}/>;
-  if(page==="login") return <Login setPage={setPage} login={login}/>;
-
-  return (
-    <div className="app">
-      <aside>
-        <div className="brand">🟡 TIGERWING</div>
-        <button onClick={()=>setPage("dashboard")}>Dashboard</button>
-        <button onClick={()=>setPage("plans")}>Plans de vol</button>
-        <button onClick={()=>setPage("fleet")}>Flotte</button>
-        {isStaff(user) && <button onClick={()=>setPage("admin")}>Candidatures</button>}
-        {isStaff(user) && <button onClick={()=>setPage("staffplans")}>Gestion vols</button>}
-        {isStaff(user) && <button onClick={()=>setPage("pilots")}>Pilotes / bans</button>}
-        {isCEO(user) && <button onClick={()=>setPage("ceo")}>CEO</button>}
-        <button onClick={()=>{setUser(null);setPage("home")}}><LogOut size={16}/> Déconnexion</button>
-      </aside>
-
-      <main>
-        <header>
-          <h2>TigerWing Crew Center</h2>
-          <span>{supabase ? "Supabase connecté" : "Mode local"} — {user.name}</span>
-        </header>
-
-        {page==="dashboard" && <Dashboard user={user} plans={plans}/>}
-        {page==="plans" && <Plans user={user} plans={plans} addPlan={addPlan} updatePlan={updatePlan}/>}
-        {page==="fleet" && <Fleet/>}
-        {page==="admin" && <Applications apps={apps} setApplicationStatus={setApplicationStatus} deleteApplication={deleteApplication}/>}
-        {page==="staffplans" && <StaffPlans plans={plans} updatePlan={updatePlan} deletePlan={deletePlan}/>}
-        {page==="pilots" && <Pilots pilots={pilots}/>}
-        {page==="ceo" && <CEO apps={apps} plans={plans} pilots={pilots}/>}
-      </main>
-    </div>
-  );
+const[page,setPage]=useState("home"),[user,setUser]=useState(null),[menu,setMenu]=useState(false),[apps,setApps]=useState(fallbackApps),[plans,setPlans]=useState(fallbackPlans),[pilots,setPilots]=useState(demoUsers),[settings,setSettings]=useState(defaultSettings),[loading,setLoading]=useState(false);
+async function refreshData(){setLoading(true);const[a,p,pi,s]=await Promise.all([safe(()=>supabase.from("applications").select("*").order("created_at",{ascending:false}),fallbackApps),safe(()=>supabase.from("flight_plans").select("*").order("created_at",{ascending:false}),fallbackPlans),safe(()=>supabase.from("pilots").select("*").order("created_at",{ascending:false}),demoUsers),safe(()=>supabase.from("site_settings").select("*").eq("id",1).maybeSingle(),defaultSettings)]);setApps(a);setPlans(p);setPilots(pi?.length?pi:demoUsers);setSettings(s||defaultSettings);setLoading(false)}
+useEffect(()=>{refreshData()},[]);
+function login(email,password){const found=demoUsers.find(u=>u.email===email&&u.password===password);if(!found)throw new Error("Identifiants incorrects");const pilotData=pilots.find(p=>p.email===found.email);const merged={...found,...(pilotData||{})};if(isBanned(merged))throw new Error("Compte banni jusqu'au "+new Date(merged.banned_until).toLocaleDateString("fr-FR"));setUser(merged);setPage("dashboard")}
+async function addApplication(form){const blocked=apps.find(a=>a.email?.toLowerCase()===form.email.toLowerCase()&&a.status==="rejected"&&a.rejected_until&&new Date(a.rejected_until)>new Date());if(blocked)throw new Error("Tu as été refusé récemment. Tu pourras repostuler dans 1 semaine.");const payload={...form,fullname:`${form.first_name} ${form.last_name}`,network_id:form.network==="IVAO"?form.ivao_id:form.vatsim_cid,status:"pending",email_sent_received:false,email_sent_decision:false};let inserted={...payload,id:"APP-"+Date.now()};if(supabase){const{data,error}=await supabase.from("applications").insert([payload]).select().single();if(error)throw error;inserted=data;await queueMail(receivedMail(inserted),inserted.id);await supabase.from("applications").update({email_sent_received:true}).eq("id",inserted.id)}setApps([inserted,...apps])}
+async function updateApplication(id,status){const app=apps.find(a=>a.id===id);const patch={status,email_sent_decision:true};if(status==="rejected")patch.rejected_until=new Date(Date.now()+7*24*60*60*1000).toISOString();if(supabase&&!String(id).startsWith("APP-")){await supabase.from("applications").update(patch).eq("id",id);await queueMail(decisionMail({...app,...patch},status),id)}setApps(apps.map(a=>a.id===id?{...a,...patch}:a))}
+async function deleteApplication(id){if(!confirm("Supprimer cette candidature ?"))return;if(supabase&&!String(id).startsWith("APP-"))await supabase.from("applications").delete().eq("id",id);setApps(apps.filter(a=>a.id!==id))}
+async function addFlightPlan(form){const payload={...form,pilot_email:user.email,pilot_name:user.name,status:"pending",debrief:""};if(supabase){const{error}=await supabase.from("flight_plans").insert([payload]);if(error)throw error}setPlans([{...payload,id:"FP-"+Date.now()},...plans])}
+async function updatePlan(id,patch){if(supabase&&!String(id).startsWith("FP-"))await supabase.from("flight_plans").update(patch).eq("id",id);setPlans(plans.map(p=>p.id===id?{...p,...patch}:p))}
+async function deletePlan(id){if(!confirm("Supprimer ce plan de vol ?"))return;if(supabase&&!String(id).startsWith("FP-"))await supabase.from("flight_plans").delete().eq("id",id);setPlans(plans.filter(p=>p.id!==id))}
+async function banPilot(email,days,reason){const until=new Date(Date.now()+Number(days)*24*60*60*1000).toISOString();const patch={status:"banned",banned_until:until,ban_reason:reason||"Non précisé"};if(supabase)await supabase.from("pilots").update(patch).eq("email",email);setPilots(pilots.map(p=>p.email===email?{...p,...patch}:p))}
+async function unbanPilot(email){const patch={status:"active",banned_until:null,ban_reason:""};if(supabase)await supabase.from("pilots").update(patch).eq("email",email);setPilots(pilots.map(p=>p.email===email?{...p,...patch}:p))}
+async function deletePilot(email){if(!confirm("Supprimer ce pilote ?"))return;if(supabase)await supabase.from("pilots").delete().eq("email",email);setPilots(pilots.filter(p=>p.email!==email))}
+async function saveSettings(next){setSettings(next);if(supabase)await supabase.from("site_settings").upsert({id:1,...next,updated_at:new Date().toISOString()})}
+if(page==="home")return <Home setPage={setPage} settings={settings}/>;
+if(page==="join")return <Join setPage={setPage} addApplication={addApplication}/>;
+if(page==="login")return <Login setPage={setPage} login={login}/>;
+return <div className="shell"><aside className={menu?"side open":"side"}><Logo dark/><Nav icon={<Plane/>} id="dashboard" label="Tableau de bord" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<FileText/>} id="plans" label="Plans de vol" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<Plane/>} id="fleet" label="Flotte" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<Award/>} id="grades" label="Grades" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<Trophy/>} id="leaderboard" label="Classement" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<CalendarDays/>} id="events" label="Événements" page={page} setPage={setPage} setMenu={setMenu}/><Nav icon={<BookOpen/>} id="docs" label="Documents" page={page} setPage={setPage} setMenu={setMenu}/>{settings.discord_url&&<a className="discordLink" href={settings.discord_url} target="_blank" rel="noreferrer"><MessageCircle size={18}/> Discord</a>}{canAdmin(user)&&<div className="sep">Admin</div>}{canAdmin(user)&&<Nav icon={<ShieldCheck/>} id="admin" label="Candidatures" page={page} setPage={setPage} setMenu={setMenu}/>} {canAdmin(user)&&<Nav icon={<Users/>} id="pilots" label="Gestion pilotes" page={page} setPage={setPage} setMenu={setMenu}/>} {canAdmin(user)&&<Nav icon={<ClipboardList/>} id="staffplans" label="Gestion vols" page={page} setPage={setPage} setMenu={setMenu}/>} {canCEO(user)&&<div className="sep">CEO</div>} {canCEO(user)&&<Nav icon={<Crown/>} id="ceo" label="Direction générale" page={page} setPage={setPage} setMenu={setMenu}/>} {canCEO(user)&&<Nav icon={<Settings/>} id="settings" label="Paramètres site" page={page} setPage={setPage} setMenu={setMenu}/>}</aside><main><header className="top"><button className="hamb" onClick={()=>setMenu(true)}><Menu/></button><b>TigerWing Crew Center</b><div className="topUser"><span className={supabase?"db on":"db"}><Database size={16}/>{supabase?"Supabase connecté":"Mode local"}</span><button onClick={refreshData}><RefreshCw size={16}/>{loading?"...":"Actualiser"}</button><Bell size={18}/><span>{user.name}</span><button onClick={()=>{setUser(null);setPage("home")}}><LogOut size={16}/> Déconnexion</button></div></header>{page==="dashboard"&&<Dashboard user={user} plans={plans} settings={settings}/>} {page==="plans"&&<Plans user={user} plans={plans} addFlightPlan={addFlightPlan} updatePlan={updatePlan}/>} {page==="fleet"&&<Fleet/>} {page==="grades"&&<Grades/>} {page==="leaderboard"&&<Leaderboard pilots={pilots}/>} {page==="events"&&<Events/>} {page==="docs"&&<Docs/>} {page==="admin"&&(canAdmin(user)?<Applications apps={apps} updateApplication={updateApplication} deleteApplication={deleteApplication}/>:<NoAccess/>)} {page==="pilots"&&(canAdmin(user)?<Pilots pilots={pilots} banPilot={banPilot} unbanPilot={unbanPilot} deletePilot={deletePilot}/>:<NoAccess/>)} {page==="staffplans"&&(canAdmin(user)?<StaffPlans plans={plans} updatePlan={updatePlan} deletePlan={deletePlan}/>:<NoAccess/>)} {page==="ceo"&&(canCEO(user)?<CEO apps={apps} plans={plans} pilots={pilots}/>:<NoAccess/>)} {page==="settings"&&(canCEO(user)?<SiteSettings settings={settings} saveSettings={saveSettings}/>:<NoAccess/>)}</main></div>
 }
-
-function Home({setPage}){
-  return (
-    <div className="home">
-      <nav>
-        <div className="brand">🟡 TIGERWING</div>
-        <div>
-          <button onClick={()=>setPage("login")}>Connexion</button>
-          <button className="gold" onClick={()=>setPage("join")}>Rejoindre</button>
-        </div>
-      </nav>
-      <section className="hero">
-        <h1>TigerWing</h1>
-        <p>Aviation virtuelle premium indépendante.</p>
-        <button className="gold" onClick={()=>setPage("join")}>Créer ma candidature</button>
-        <button onClick={()=>setPage("login")}>Accès pilote</button>
-      </section>
-    </div>
-  );
-}
-
-function Join({setPage,addApplication}){
-  const [form,setForm] = useState({
-    first_name:"", last_name:"", nickname:"", email:"", country:"France",
-    network:"Aucun", ivao_id:"", vatsim_cid:"", simulator:"MSFS", experience:"Débutant", motivation:""
-  });
-  const [msg,setMsg] = useState("");
-  const needIvao = form.network === "IVAO" || form.network === "IVAO + VATSIM";
-  const needVatsim = form.network === "VATSIM" || form.network === "IVAO + VATSIM";
-
-  async function submit(e){
-    e.preventDefault();
-    setMsg("Envoi...");
-    try{
-      await addApplication(form);
-      setMsg("✅ Candidature envoyée. Mail préparé dans mail_queue.");
-    }catch(err){
-      setMsg("❌ " + err.message);
-    }
-  }
-
-  return (
-    <div className="auth">
-      <button className="back" onClick={()=>setPage("home")}>← Accueil</button>
-      <form onSubmit={submit} className="card big">
-        <h1>Rejoindre TigerWing</h1>
-        <div className="grid2">
-          <input required placeholder="Prénom" value={form.first_name} onChange={e=>setForm({...form,first_name:e.target.value})}/>
-          <input required placeholder="Nom" value={form.last_name} onChange={e=>setForm({...form,last_name:e.target.value})}/>
-          <input required placeholder="Surnom" value={form.nickname} onChange={e=>setForm({...form,nickname:e.target.value})}/>
-          <input required type="email" placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-          <select value={form.country} onChange={e=>setForm({...form,country:e.target.value})}>
-            <option>France</option><option>Belgique</option><option>Suisse</option><option>Canada</option><option>Autre</option>
-          </select>
-          <select value={form.network} onChange={e=>setForm({...form,network:e.target.value})}>
-            <option>Aucun</option><option>IVAO</option><option>VATSIM</option><option>IVAO + VATSIM</option>
-          </select>
-          {needIvao && <input placeholder="ID IVAO" value={form.ivao_id} onChange={e=>setForm({...form,ivao_id:e.target.value})}/>}
-          {needVatsim && <input placeholder="CID VATSIM" value={form.vatsim_cid} onChange={e=>setForm({...form,vatsim_cid:e.target.value})}/>}
-          <select value={form.simulator} onChange={e=>setForm({...form,simulator:e.target.value})}>
-            <option>MSFS</option><option>X-Plane</option><option>Prepar3D</option>
-          </select>
-          <select value={form.experience} onChange={e=>setForm({...form,experience:e.target.value})}>
-            <option>Débutant</option><option>Intermédiaire</option><option>Confirmé</option><option>Expert</option>
-          </select>
-        </div>
-        <textarea placeholder="Motivation" value={form.motivation} onChange={e=>setForm({...form,motivation:e.target.value})}/>
-        <button className="gold"><UserPlus size={16}/> Envoyer ma candidature</button>
-        <p>{msg}</p>
-      </form>
-    </div>
-  );
-}
-
-function Login({setPage,login}){
-  const [email,setEmail] = useState("pilote@tigerwing.va");
-  const [password,setPassword] = useState("tiger123");
-  const [msg,setMsg] = useState("");
-
-  function submit(e){
-    e.preventDefault();
-    try{ login(email,password); }
-    catch(err){ setMsg("❌ " + err.message); }
-  }
-
-  return (
-    <div className="auth">
-      <button className="back" onClick={()=>setPage("home")}>← Accueil</button>
-      <form onSubmit={submit} className="card">
-        <h1>Connexion</h1>
-        <input value={email} onChange={e=>setEmail(e.target.value)}/>
-        <input type="password" value={password} onChange={e=>setPassword(e.target.value)}/>
-        <button className="gold"><LogIn/> Se connecter</button>
-        <p>{msg}</p>
-        <small>pilote@tigerwing.va / tiger123<br/>admin@tigerwing.va / admin123<br/>ceo@tigerwing.va / ceo123</small>
-      </form>
-    </div>
-  );
-}
-
-function Dashboard({user,plans}){
-  const shown = user.role === "pilote" ? plans.filter(p=>p.pilot_email===user.email) : plans;
-  return (
-    <section>
-      <h1>Bienvenue, {user.name}</h1>
-      <div className="stats">
-        <div className="box">Callsign<br/><b>{user.callsign}</b></div>
-        <div className="box">Grade<br/><b>{user.rank}</b></div>
-        <div className="box">Heures<br/><b>{user.hours}h</b></div>
-        <div className="box">Vols<br/><b>{user.flights}</b></div>
-      </div>
-      <div className="card">
-        <h2>Mes opérations</h2>
-        {shown.map(p=><p key={p.id}>✈️ {p.callsign} — {p.departure} → {p.arrival}</p>)}
-      </div>
-    </section>
-  );
-}
-
-function Plans({user,plans,addPlan,updatePlan}){
-  const [f,setF] = useState({callsign:"TWG204",departure:"LFPG",arrival:"LEMD",aircraft:"A320neo",route:""});
-  const [debrief,setDebrief] = useState({});
-  const shown = user.role === "pilote" ? plans.filter(p=>p.pilot_email===user.email) : plans;
-
-  async function submit(e){ e.preventDefault(); await addPlan(f); }
-
-  return (
-    <section>
-      <h1>Plans de vol</h1>
-      <div className="grid2">
-        <form className="card" onSubmit={submit}>
-          <input value={f.callsign} onChange={e=>setF({...f,callsign:e.target.value})}/>
-          <input value={f.departure} onChange={e=>setF({...f,departure:e.target.value})}/>
-          <input value={f.arrival} onChange={e=>setF({...f,arrival:e.target.value})}/>
-          <input value={f.aircraft} onChange={e=>setF({...f,aircraft:e.target.value})}/>
-          <textarea placeholder="Route" value={f.route} onChange={e=>setF({...f,route:e.target.value})}/>
-          <button className="gold"><Send size={16}/> Envoyer</button>
-        </form>
-        <div className="card">
-          <h2>Débrief pilote</h2>
-          {shown.map(p=><div className="row" key={p.id}>
-            <b>{p.callsign}</b> {p.departure} → {p.arrival}
-            <textarea placeholder="Débrief" value={debrief[p.id] ?? p.debrief ?? ""} onChange={e=>setDebrief({...debrief,[p.id]:e.target.value})}/>
-            <button onClick={()=>updatePlan(p,{debrief:debrief[p.id] ?? ""})}><Save size={14}/> Sauver</button>
-          </div>)}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Applications({apps,setApplicationStatus,deleteApplication}){
-  return (
-    <section>
-      <h1>Candidatures</h1>
-      <div className="card">
-        {apps.length===0 && <p>Aucune candidature.</p>}
-        {apps.map(a=><div className="row" key={a.id}>
-          <b>{a.first_name} {a.last_name}</b> — {a.email} — {a.network} — {a.status}
-          <p>{a.motivation}</p>
-          <button onClick={()=>setApplicationStatus(a,"accepted")}><Check size={14}/> Accepter</button>
-          <button onClick={()=>setApplicationStatus(a,"rejected")}><X size={14}/> Refuser</button>
-          <button onClick={()=>deleteApplication(a)}><Trash2 size={14}/> Supprimer</button>
-        </div>)}
-      </div>
-    </section>
-  );
-}
-
-function StaffPlans({plans,updatePlan,deletePlan}){
-  return (
-    <section>
-      <h1>Gestion vols</h1>
-      <div className="card">
-        {plans.map(p=><div className="row" key={p.id}>
-          <b>{p.callsign}</b> — {p.pilot_name} — {p.departure} → {p.arrival}
-          <p>Débrief : {p.debrief || "Aucun"}</p>
-          <button onClick={()=>updatePlan(p,{status:"accepted"})}>Valider</button>
-          <button onClick={()=>updatePlan(p,{status:"rejected"})}>Refuser</button>
-          <button onClick={()=>deletePlan(p)}>Supprimer</button>
-        </div>)}
-      </div>
-    </section>
-  );
-}
-
-function Pilots({pilots}){
-  return (
-    <section>
-      <h1>Pilotes / bans</h1>
-      <div className="card">
-        {pilots.map(p=><p key={p.email}><Users size={14}/> {p.name} — {p.role} — {p.email}</p>)}
-        <p>Gestion ban complète à remettre après stabilisation.</p>
-      </div>
-    </section>
-  );
-}
-
-function CEO({apps,plans,pilots}){
-  return (
-    <section>
-      <h1>Direction générale</h1>
-      <div className="stats">
-        <div className="box">Candidatures<br/><b>{apps.length}</b></div>
-        <div className="box">Vols<br/><b>{plans.length}</b></div>
-        <div className="box">Pilotes<br/><b>{pilots.length}</b></div>
-      </div>
-    </section>
-  );
-}
-
-function Fleet(){
-  return (
-    <section>
-      <h1>Flotte</h1>
-      <div className="stats">
-        <div className="box">A320neo</div>
-        <div className="box">A350-900</div>
-        <div className="box">B787-9</div>
-        <div className="box">B777-300ER</div>
-      </div>
-    </section>
-  );
-}
-
+function Logo({dark=false}){return <div className={dark?"logo dark":"logo"}><span></span><b>TIGERWING</b></div>}
+function Nav({icon,id,label,page,setPage,setMenu}){return <button className={page===id?"nav active":"nav"} onClick={()=>{setPage(id);setMenu(false)}}>{icon}<span>{label}</span></button>}
+function Home({setPage,settings}){return <div className="public"><nav className="pubnav"><Logo/><div>{settings.discord_url&&<a className="ghost" href={settings.discord_url} target="_blank">Discord</a>}<button className="ghost" onClick={()=>setPage("login")}>Connexion</button><button className="gold" onClick={()=>setPage("join")}>Rejoindre</button></div></nav><section className="hero"><div><p className="badge"><RadioTower size={16}/> Compagnie virtuelle premium indépendante</p><h1>L’excellence de l’aviation virtuelle.</h1><p className="lead">TigerWing est une VA francophone premium, ouverte aux pilotes IVAO, VATSIM, les deux ou aucun réseau.</p><button className="gold big" onClick={()=>setPage("join")}>Créer ma candidature</button><button className="glass big" onClick={()=>setPage("login")}>Accès pilote</button></div><div className="visual"><Plane className="bigPlane"/><div>TWG350<br/><small>Paris CDG → Dubaï</small></div><div>TWG787<br/><small>Montréal → Paris</small></div></div></section><section className="stats"><Card title="Objectif pilotes" value="250+"/><Card title="Flotte" value="8 avions"/><Card title="Hubs" value="6"/><Card title="Events" value="12/mois"/></section></div>}
+function Join({setPage,addApplication}){const[form,setForm]=useState({first_name:"",last_name:"",nickname:"",email:"",country:"France",network:"Aucun",ivao_id:"",vatsim_cid:"",simulator:"MSFS",experience:"Débutant",motivation:""}),[ok,setOk]=useState(false),[err,setErr]=useState("");const needsIvao=form.network==="IVAO"||form.network==="IVAO + VATSIM",needsVatsim=form.network==="VATSIM"||form.network==="IVAO + VATSIM";async function submit(e){e.preventDefault();setErr("");try{await addApplication(form);setOk(true)}catch(x){setErr(x.message)}}return <div className="auth"><button className="back" onClick={()=>setPage("home")}>← Accueil</button><Logo dark/><form onSubmit={submit} className="authcard wide"><h1>Rejoindre TigerWing</h1><div className="two"><input required placeholder="Prénom" value={form.first_name} onChange={e=>setForm({...form,first_name:e.target.value})}/><input required placeholder="Nom" value={form.last_name} onChange={e=>setForm({...form,last_name:e.target.value})}/></div><div className="two"><input required placeholder="Surnom / pseudo" value={form.nickname} onChange={e=>setForm({...form,nickname:e.target.value})}/><input required placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></div><div className="two"><select value={form.country} onChange={e=>setForm({...form,country:e.target.value})}><option>France</option><option>Belgique</option><option>Suisse</option><option>Canada</option><option>Autre</option></select><select value={form.network} onChange={e=>setForm({...form,network:e.target.value})}><option>Aucun</option><option>IVAO</option><option>VATSIM</option><option>IVAO + VATSIM</option></select></div>{(needsIvao||needsVatsim)&&<div className="two">{needsIvao&&<input placeholder="ID IVAO" value={form.ivao_id} onChange={e=>setForm({...form,ivao_id:e.target.value})}/>} {needsVatsim&&<input placeholder="CID VATSIM" value={form.vatsim_cid} onChange={e=>setForm({...form,vatsim_cid:e.target.value})}/>}</div>}<div className="two"><select value={form.simulator} onChange={e=>setForm({...form,simulator:e.target.value})}><option>MSFS</option><option>X-Plane</option><option>Prepar3D</option></select><select value={form.experience} onChange={e=>setForm({...form,experience:e.target.value})}><option>Débutant</option><option>Intermédiaire</option><option>Confirmé</option><option>Expert</option></select></div><textarea placeholder="Motivation" value={form.motivation} onChange={e=>setForm({...form,motivation:e.target.value})}></textarea><button className="gold full"><UserPlus size={18}/> Envoyer ma candidature</button>{ok&&<p className="success"><Mail size={16}/> Candidature envoyée. Une ligne est ajoutée dans mail_queue.</p>}{err&&<p className="error">{err}</p>}<button type="button" className="link" onClick={()=>setPage("login")}>Déjà un compte</button></form></div>}
+function Login({setPage,login}){const[email,setEmail]=useState("pilote@tigerwing.va"),[password,setPassword]=useState("tiger123"),[err,setErr]=useState("");function submit(e){e.preventDefault();try{login(email,password)}catch(x){setErr(x.message)}}return <div className="auth"><button className="back" onClick={()=>setPage("home")}>← Accueil</button><Logo dark/><form className="authcard" onSubmit={submit}><h1>Connexion pilote</h1><input value={email} onChange={e=>setEmail(e.target.value)}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)}/>{err&&<p className="error">{err}</p>}<button className="gold full"><LogIn size={18}/> Se connecter</button><div className="demo">pilote@tigerwing.va / tiger123<br/>admin@tigerwing.va / admin123<br/>ceo@tigerwing.va / ceo123</div></form></div>}
+function Dashboard({user,plans,settings}){const my=user.role==="pilote"?plans.filter(p=>p.pilot_email===user.email||p.pilot_name===user.name):plans;return <section className="page"><div className="welcome">{settings.announcement||"Bienvenue chez TigerWing"}, {user.name}.</div><div className="stats"><Card title="Vols" value={user.flights}/><Card title="Heures" value={user.hours+"h"}/><Card title="Grade" value={user.rank}/><Card title="Aéroport" value={user.airport}/></div><div className="grid2"><div className="panel profile"><div className="pilot">👨‍✈️</div><h2>{user.callsign}</h2><p>{user.network}</p><div className="bar"><span style={{width:user.xp+"%"}}></span></div></div><div className="panel map"><h2>Opérations VA</h2>{my.map(p=><div className="flight" key={p.id}><Plane size={16}/><b>{p.callsign}</b><span>{p.departure} → {p.arrival}</span></div>)}</div></div></section>}
+function Plans({plans,addFlightPlan,user,updatePlan}){const[f,setF]=useState({callsign:"TWG204",departure:"LFPG",arrival:"LEMD",aircraft:"A320neo",route:""}),[ok,setOk]=useState(false),[debriefs,setDebriefs]=useState({});async function add(e){e.preventDefault();await addFlightPlan(f);setOk(true)}const shown=user.role==="pilote"?plans.filter(p=>p.pilot_email===user.email||p.pilot_name===user.name):plans;return <section className="page"><h1>Plans de vol</h1><div className="grid2"><form className="panel form" onSubmit={add}><input value={f.callsign} onChange={e=>setF({...f,callsign:e.target.value.toUpperCase()})}/><input value={f.departure} onChange={e=>setF({...f,departure:e.target.value.toUpperCase()})}/><input value={f.arrival} onChange={e=>setF({...f,arrival:e.target.value.toUpperCase()})}/><input value={f.aircraft} onChange={e=>setF({...f,aircraft:e.target.value})}/><textarea placeholder="Route" value={f.route} onChange={e=>setF({...f,route:e.target.value})}></textarea><button className="gold"><Send size={16}/> Envoyer</button>{ok&&<p className="success">Plan envoyé.</p>}</form><div className="panel"><h2>Mes vols / débriefs</h2><table><tbody>{shown.map(p=><tr key={p.id}><td>{p.callsign}<br/><small>{p.departure} → {p.arrival}</small></td><td>{statusFR(p.status)}</td><td><textarea className="miniArea" placeholder="Débrief pilote" value={debriefs[p.id]??p.debrief??""} onChange={e=>setDebriefs({...debriefs,[p.id]:e.target.value})}/><button onClick={()=>updatePlan(p.id,{debrief:debriefs[p.id]??p.debrief??""})}><Save size={14}/> Sauver</button></td></tr>)}</tbody></table></div></div></section>}
+function StaffPlans({plans,updatePlan,deletePlan}){return <section className="page"><h1>Gestion vols & débriefs</h1><div className="panel"><table><thead><tr><th>Vol</th><th>Pilote</th><th>Route</th><th>Débrief pilote</th><th>Actions</th></tr></thead><tbody>{plans.map(p=><tr key={p.id}><td>{p.callsign}<br/><small>{statusFR(p.status)}</small></td><td>{p.pilot_name}</td><td>{p.departure} → {p.arrival}</td><td>{p.debrief||"Aucun débrief"}</td><td><button onClick={()=>updatePlan(p.id,{status:"accepted"})}>Valider</button><button onClick={()=>updatePlan(p.id,{status:"rejected"})}>Refuser</button><button className="danger" onClick={()=>deletePlan(p.id)}><Trash2 size={15}/> Suppr</button></td></tr>)}</tbody></table></div></section>}
+function Fleet(){return <section className="page"><h1>Flotte officielle</h1><div className="fleet">{fleet.map(([m,r,b,h])=><div className="fleetcard" key={m}><Plane/><span>{b}</span><h2>{m}</h2><p>{r}</p><small>Hub : {h}</small></div>)}</div></section>}
+function Grades(){return <section className="page"><h1>Grades</h1><div className="fleet">{["Cadet","First Officer","Captain","Commandant","Executive Captain"].map(g=><div className="fleetcard" key={g}><Award/><h2>{g}</h2><p>Progression TigerWing</p></div>)}</div></section>}
+function Leaderboard({pilots}){return <section className="page"><h1>Classement</h1><div className="panel"><table><tbody>{pilots.map((u,i)=><tr key={u.email||i}><td>{i+1}</td><td>{u.name}</td><td>{u.hours||0}h</td><td>{u.flights||0} vols</td><td>{u.rank||"Cadet"}</td><td>{isBanned(u)?"Banni":"Actif"}</td></tr>)}</tbody></table></div></section>}
+function Events(){return <section className="page"><h1>Événements</h1><div className="grid3"><Feature icon={<CalendarDays/>} title="Friday Night Ops" text="Paris CDG → Nice"/><Feature icon={<Plane/>} title="Long Courrier Luxe" text="Paris CDG → Dubaï"/><Feature icon={<Users/>} title="Académie débutants" text="Formation"/></div></section>}
+function Docs(){return <section className="page"><h1>Documents</h1><div className="grid3"><Feature icon={<Download/>} title="Manuel pilote" text="Procédures TigerWing"/><Feature icon={<BookOpen/>} title="Livrées" text="Pack à venir"/><Feature icon={<Building2/>} title="Discord" text="Communauté officielle"/></div></section>}
+function Applications({apps,updateApplication,deleteApplication}){return <section className="page"><h1>Candidatures</h1><div className="panel"><table><thead><tr><th>Identité</th><th>Email</th><th>Réseau</th><th>Simu</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{apps.map(a=><tr key={a.id}><td>{a.first_name} {a.last_name}<br/><small>{a.nickname}</small></td><td>{a.email}</td><td>{a.network}<br/><small>IVAO: {a.ivao_id||"-"} / VATSIM: {a.vatsim_cid||"-"}</small></td><td>{a.simulator}</td><td>{statusFR(a.status)}<br/><small>{a.rejected_until?"Repostulation après: "+new Date(a.rejected_until).toLocaleDateString("fr-FR"):""}</small></td><td><button onClick={()=>updateApplication(a.id,"accepted")}><Check size={15}/> Accepter</button><button onClick={()=>updateApplication(a.id,"rejected")}><X size={15}/> Refuser</button><button className="danger" onClick={()=>deleteApplication(a.id)}><Trash2 size={15}/> Suppr</button></td></tr>)}</tbody></table></div></section>}
+function Pilots({pilots,banPilot,unbanPilot,deletePilot}){const[days,setDays]=useState("7"),[reason,setReason]=useState("Non respect du règlement");return <section className="page"><h1>Gestion pilotes</h1><div className="panel banControls"><input value={days} onChange={e=>setDays(e.target.value)} placeholder="Durée ban en jours"/><input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Raison du ban"/></div><div className="panel"><table><thead><tr><th>Pilote</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{pilots.map((p,i)=><tr key={p.email||i}><td>{p.name}<br/><small>{p.callsign}</small></td><td>{p.email}</td><td>{p.role||"pilote"}</td><td>{isBanned(p)?"Banni jusqu'au "+new Date(p.banned_until).toLocaleDateString("fr-FR"):"Actif"}<br/><small>{p.ban_reason}</small></td><td><button onClick={()=>banPilot(p.email,days,reason)}><Ban size={15}/> Bannir</button><button onClick={()=>unbanPilot(p.email)}>Déban</button><button className="danger" onClick={()=>deletePilot(p.email)}><UserX size={15}/> Suppr</button></td></tr>)}</tbody></table></div></section>}
+function CEO({apps,plans,pilots}){return <section className="page"><h1>Direction générale</h1><div className="stats"><Card title="Candidatures" value={apps.length}/><Card title="En attente" value={apps.filter(a=>a.status==="pending").length}/><Card title="Plans de vol" value={plans.length}/><Card title="Pilotes" value={pilots.length}/></div><div className="grid2"><div className="panel"><h2>Vue CEO</h2><p>Le CEO voit tout : candidatures, pilotes, bans, débriefs, opérations et stratégie.</p></div><div className="panel"><h2>Emails</h2><p>Les emails sont préparés dans mail_queue.</p></div></div></section>}
+function SiteSettings({settings,saveSettings}){const[form,setForm]=useState(settings);return <section className="page"><h1>Paramètres site</h1><div className="panel form"><label>Lien Discord</label><input value={form.discord_url||""} onChange={e=>setForm({...form,discord_url:e.target.value})} placeholder="https://discord.gg/..."/><label>Annonce dashboard</label><textarea value={form.announcement||""} onChange={e=>setForm({...form,announcement:e.target.value})}/><button className="gold" onClick={()=>saveSettings(form)}><Save size={16}/> Sauvegarder</button></div></section>}
+function NoAccess(){return <section className="page"><Lock/><h1>Accès refusé</h1></section>}
+function Card({title,value}){return <div className="card"><small>{title}</small><b>{value}</b></div>}
+function Feature({icon,title,text}){return <div className="feature">{icon}<h3>{title}</h3><p>{text}</p></div>}
 createRoot(document.getElementById("root")).render(<App/>);
