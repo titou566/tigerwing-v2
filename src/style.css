@@ -1,26 +1,11 @@
-body {
-  font-family: Arial;
-  background: #f5f5f5;
-}
-
-.container {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  background: white;
-  border-radius: 10px;
-}
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin: 5px 0;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  background: black;
-  color: white;
-  border: none;
-}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#0f172a}button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:0;border-radius:10px;padding:11px 14px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+.gold{background:#ffd21f;color:#111}.brand{font-weight:900;letter-spacing:5px}
+.home{min-height:100vh;background:linear-gradient(135deg,#06101e,#12294a);color:white}.home nav{display:flex;justify-content:space-between;padding:28px 7vw}.home nav div{display:flex;gap:10px}.hero{padding:12vh 8vw}.hero h1{font-size:88px;margin:0}.hero p{font-size:22px;color:#cbd5e1}
+.auth{min-height:100vh;display:flex;justify-content:center;align-items:center;background:linear-gradient(135deg,#f6d78b,#334155);padding:30px}.back{position:absolute;left:20px;top:20px;background:white}
+.card{background:white;border:1px solid #e5e7eb;border-radius:22px;padding:26px;box-shadow:0 14px 34px #0001}.card.big{width:min(880px,100%)}.card h1{margin-top:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}input,select,textarea{width:100%;padding:14px;border:1px solid #cbd5e1;border-radius:12px;margin:4px 0}textarea{min-height:110px}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}aside{background:white;border-right:1px solid #e5e7eb;padding:22px;display:flex;flex-direction:column;gap:8px}aside button{background:white;text-align:left;justify-content:flex-start;color:#334155}aside button:hover{background:#f8fafc}
+main{padding:0 24px 24px}header{height:72px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;margin-bottom:22px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px}.box{background:white;border:1px solid #e5e7eb;border-radius:18px;padding:20px}.box b{font-size:26px}
+.row{border-top:1px solid #e5e7eb;padding:14px 0;display:grid;gap:8px}
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static}.grid2{grid-template-columns:1fr}.hero h1{font-size:54px}}
